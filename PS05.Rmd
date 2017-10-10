@@ -33,31 +33,31 @@ sample_submission <- read_csv("data/sampleSubmission.csv")
 
 Please indicate who you collaborated with on this assignment:
 
-Christien Wright
+Nobody
 
 # Exploratory Data Analysis
 
 Information on the competition can be found [here](https://www.kaggle.com/c/bike-sharing-demand).
 
-In exploring this dataset, we first examined the relationships between the quantitative predictor variables and our response variable. Therefore, we created scatterplots between count and the following predictors: temp, atemp, humidity, and windspeed. 
+We first examined the relationships between the quantitative predictor variables and our response variable. Therefore, we created scatterplots between count and the following predictors: temp, atemp, humidity, and windspeed. 
 
-```{r}
+```{r, echo=FALSE}
 ggplot(train, aes(temp, count)) + geom_point() + ggtitle("Total Rentals by Actual Temperature") + xlab("Actual Temperature") +ylab("Total Rentals")
 ```
 Notice there is a moderately strong linear increasing trend here between temperature. We can verify this by calculating a correlation coefficient:
 
 ```{r}
-cor(train$count, train[,6])
+cor(train$count, train[,6]) #correlation b/w temp and count
 ```
 This trend makes sense, intuitively, as people prefer to be outside on warmer days. This trend breaks down slightly as the temperature gets really hot, but the overall trend is generally positive.
 
-```{r}
+```{r, echo=FALSE}
 ggplot(train, aes(humidity, count)) + geom_point() + ggtitle("Total Rentals by Humidity") + xlab("Humidity") +ylab("Total Rentals")
 ```
 The relationship between humidity and total rentals seems to be negative. The correlation appears to be weaker than that between temperature and total rentals, which we verified below to be -0.32. 
 
 ```{r}
-cor(train$count, train[,8])
+cor(train$count, train[,8]) #correlation b/w humidity and count
 ```
 Like with actual temperature, this trend matches our intuition. Very humid days tend to either be rainy days or hot and "sticky", neither of which makes for good bike riding weather.
 
@@ -65,18 +65,21 @@ Together, actual temperature and humidity make a more precise version of the wea
 
 
 ```{r}
-train$datetime = structure(train$datetime,class=c('POSIXt','POSIXct'))
-train=mutate(train, time=format(datetime, "%H"))
-hour_counts<-train %>%
+train$datetime = structure(train$datetime,class=c('POSIXt','POSIXct')) #restructuring
+train=mutate(train, time=format(datetime, "%H")) 
+hour_counts<-train %>% #getting mean rentals by hour of day
   group_by(time) %>%
   summarise(count=mean(count))
+```
+
+```{r, echo=FALSE}
 ggplot(hour_counts, aes(time,count)) + geom_point() + ggtitle("Mean Rentals by Time of Day") + xlab("Hour of Day") + ylab("Mean Rentals")
 ```
 The categorical variable we looked most seriously was the actual time stamp. Instead of using the time stamp as simply an identifier, we felt it might be useful as a categorical variable. Notice in the graph above the arc of the mean bike rentals as the day progresses. Naturally, the middle of the night is the quietest time to see people riding their bikes, while the most popular times are just before and just following work (8 AM and 5/6PM). For this clear trend, we felt that time of day would be useful in our model. 
 
 We initiailly expected to include the workingday indicator variable in our model, expecting a significant difference between bike rental volume on work days versus non-working days. 
 
-```{r}
+```{r, echo=FALSE}
 ggplot(train, aes(as.factor(workingday), count)) + geom_boxplot() + ggtitle("Working Day vs Non Working Day")+ xlab("Working Day") + ylab("Bike Rentals")
 ```
 
@@ -88,7 +91,6 @@ We considered using other categorical variables, but their boxplots revealed tha
 
 ```{r}
 mod<-lm(log(count)~temp+humidity+as.factor(time), data=train)
-#summary(mod)
 ```
 
 Ultimately, we elected to fit a linear model with temperature, humidity, and time of day. In order to ensure that our predictions would be positive values, we took the log() of the total bike rentals. While we likely wouldn't have made this transformation after looking at the scatterplots, but it is imperative that our predictions remain positive. The $R^2$ value for this model was 0.7692, which indicates that our model learned the training set well. Naturally, the concern with an $R^2$ value this high is that we may be overfitting a specific training set. Having said that, with only 3 variables that should impact bike rentals universally, overfitting should not be an issue here.
@@ -98,9 +100,9 @@ Ultimately, we elected to fit a linear model with temperature, humidity, and tim
 
 ```{r}
 test$datetime = structure(test$datetime,class=c('POSIXt','POSIXct'))
-test=mutate(test, time=format(datetime, "%H"))
-test$pred<-exp(predict.lm(mod, test))
-submission<-test[,c(1,11)]
-colnames(submission)[2]="count"
-write.csv(submission, "submission.csv", row.names=FALSE)
+test=mutate(test, time=format(datetime, "%H")) 
+test$pred<-exp(predict.lm(mod, test)) #create predictions for test set
+submission<-test[,c(1,11)] #select just columns we want
+colnames(submission)[2]="count" #renaming 
+write.csv(submission, "submission.csv", row.names=FALSE) #write to file
 ```
